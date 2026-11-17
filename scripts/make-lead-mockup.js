@@ -32,7 +32,7 @@ const html = String.raw`<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lead dashboard · mockup</title>
+<title>${PRACTICE ? 'Lead dashboard · mockup' : 'Kay · My Leads'}</title>
 <style>
 :root {
   color-scheme: light;
