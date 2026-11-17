@@ -2,7 +2,7 @@
 // filled from the invented practice workbook data/leads/Lead_Practice.xlsx.
 // It is a look-and-feel mockup only (one self-contained file, no network); the real pages come later.
 // Run: node scripts/make-lead-mockup.js
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import readXlsxFile from 'read-excel-file/node';
@@ -24,6 +24,7 @@ const table = name => {
     .map(r => Object.fromEntries(head.map((h, i) => [h, h.endsWith('_date') ? iso(r[i]) : typeof r[i] === 'string' ? r[i].trim() : r[i]])));
 };
 const data = { leads: table('Leads'), cases: table('Cases'), payments: table('Payments'), freebies: table('Freebies') };
+const BANNER = 'data:image/png;base64,' + readFileSync(path.join(root, 'scripts/assets/header-banner.png')).toString('base64'); // cartoon header, embedded so the page stays one file
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
 
 const html = String.raw`<!doctype html>
@@ -34,31 +35,50 @@ const html = String.raw`<!doctype html>
 <title>Lead dashboard · mockup</title>
 <style>
 :root {
-  color-scheme: dark;
-  --brand: #39E27A; --on-brand: #04140A; --brand-deep: #0E3A22; --brand-soft: #0F2A1C; --brand-ink: #9CF5BE; --brand-ink-2: #6FD69A;
-  --gold: #1FAA55; --page: #050806; --surface: #0C1410; --surface-2: #13201A; --border: #1E3328;
-  --ink: #E6F2EA; --ink-2: #B5CBBE; --muted: #86A292; --btn: #39E27A; --btn-ink: #04140A;
-  --hot: #F07A5A; --hot-bg: #3A1D16; --cold: #6FA8E8; --cold-bg: #172A40;
-  --good: #7CC473; --overdue: #F0645A; --critical-fill: #B8321F;
-  --grid: #14231B;
-  --glow: 0 0 0 1px var(--border), 0 0 24px rgba(57, 226, 122, 0.06);
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  color-scheme: light;
+  --brand: #E9A98E; --on-brand: #4A3426; --brand-deep: #C98A6B; --brand-soft: #F8E3DA; --brand-ink: #8A4E36; --brand-ink-2: #A8664C;
+  --gold: #E7B98A; --page: #F6F0E4; --surface: #FFFDF6; --surface-2: #F5EEDF; --border: #EADFCB;
+  --ink: #4A3426; --ink-2: #6B5242; --muted: #9A8776; --btn: #E9B8A4; --btn-ink: #4A3426;
+  --hot: #C9644A; --hot-bg: #F9DDD4; --cold: #4F7DAA; --cold-bg: #D9E6F3;
+  --good: #5B8F54; --overdue: #CC4F44; --critical-fill: #D8695C;
+  --grid: #EFE5D3;
+  --glow: 0 6px 18px rgba(120, 90, 60, 0.10);
+  --font: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
 h1, h2, h3 { margin: 0 0 8px; line-height: 1.25; }
 h1 { font-size: 26px; } h2 { font-size: 17px; font-weight: 650; } h3 { font-size: 14px; font-weight: 650; }
 .muted { color: var(--muted); } .small { font-size: 13px; } .num { font-variant-numeric: tabular-nums; }
-.ribbon { background: var(--brand-soft); color: var(--brand-ink); font-size: 13px; padding: 6px 16px; text-align: center; }
-.topbar { display: flex; align-items: center; gap: 10px; padding: 12px 20px; font-weight: 700; font-size: 17px; }
-.mark { width: 22px; height: 22px; border-radius: 7px; background: var(--brand-deep); box-shadow: inset 0 -5px 0 var(--gold); }
-.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; padding: 0 16px 24px; }
-nav { position: sticky; top: 12px; align-self: start; background: var(--surface); box-shadow: var(--glow); border-radius: 22px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
-nav a { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; border-radius: 12px; color: var(--ink-2); text-decoration: none; }
-nav a:hover { background: var(--surface-2); }
-nav a.active { background: var(--brand-soft); color: var(--brand-ink); font-weight: 650; }
-.count { background: var(--surface-2); border-radius: 999px; padding: 0 8px; font-size: 12px; font-weight: 600; }
-nav a.active .count { background: var(--surface); }
+.ribbon { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+.page-head { max-width: 1280px; margin: 16px auto 6px; height: 230px; position: relative; background-color: #FEFBF1; background-repeat: no-repeat; background-position: center; background-size: auto 100%; border-radius: 26px; box-shadow: var(--glow); container-type: inline-size; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; overflow: hidden; }
+.page-head h1 { font-size: 44px; margin: 0; letter-spacing: .5px; line-height: 1.1; }
+.page-head p { margin: 3px 0 0; color: var(--ink-2); font-size: 14px; }
+.page-head p.sub-title { font-size: 20px; font-weight: 650; letter-spacing: 1px; }
+.ribbon { color: var(--muted); font-size: 12.5px; max-width: 1280px; margin: 0 auto 14px; padding: 0 22px; text-align: center; }
+@media (max-width: 960px) {
+  .cal { display: none; }
+  .page-head { height: auto; aspect-ratio: 1140 / 334; background-size: 100% 100%; }
+  .page-head h1 { font-size: 6.5cqw; } .page-head p { font-size: 1.9cqw; } .page-head p.sub-title { font-size: 2.6cqw; }
+}
+.cal { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); background: #A9C3E0; color: #fff; border-radius: 24px; padding: 8px 10px 9px; box-shadow: var(--glow); width: 190px; }
+.cal .ch { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 12.5px; margin-bottom: 3px; }
+.cal .ch button { font: inherit; background: rgba(255,255,255,.3); color: #fff; border: 0; border-radius: 50%; width: 20px; height: 20px; font-size: 13px; cursor: pointer; line-height: 1; padding: 0; }
+.cal .cg { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; text-align: center; font-size: 10.5px; }
+.cal .cg .w { font-size: 9.5px; opacity: .8; }
+.cal .cg .d { position: relative; padding: 2px 0 5px; border-radius: 7px; }
+.cal .cg .d.today { background: #fff; color: #3F6590; font-weight: 700; }
+.cal .cg .d.dot::after { content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #FFE3A8; }
+.cal .cg .d.today.dot::after { background: #E39B7C; }
+.cal .note { display: none; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 0 16px 32px; max-width: 1280px; margin: 0 auto; }
+nav { display: flex; flex-wrap: wrap; gap: 12px; }
+nav a { flex: 1 1 150px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 18px 12px; border-radius: 22px; color: var(--ink); text-decoration: none; font-weight: 650; box-shadow: var(--glow); background: var(--surface); }
+nav a:nth-child(1) { background: #FFFAEB; } nav a:nth-child(2) { background: #D6E4F2; } nav a:nth-child(3) { background: #CFE6E3; }
+nav a:nth-child(4) { background: #F5D5CF; } nav a:nth-child(5) { background: #E6DEF5; } nav a:nth-child(6) { background: #F7E6BF; }
+nav a:hover { transform: translateY(-2px); }
+nav a.active { outline: 2.5px solid var(--brand-deep); outline-offset: 2px; }
+.count { background: rgba(255,255,255,.75); border-radius: 999px; padding: 0 8px; font-size: 12px; font-weight: 600; }
 .count.alert { background: var(--critical-fill); color: #fff; }
 main { min-width: 0; }
 .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 4px 0 14px; }
@@ -71,24 +91,24 @@ main { min-width: 0; }
 .tile .label { font-size: 13px; color: var(--ink-2); }
 .tile .value { font-size: 30px; font-weight: 700; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
 .tile .foot { font-size: 12.5px; color: var(--muted); }
-.tile.hero { background: var(--brand-soft); } .tile.hero .label, .tile.hero .foot { color: var(--brand-ink-2); } .tile.hero .value { color: var(--brand); font-size: 40px; text-shadow: 0 0 18px rgba(57, 226, 122, 0.45); }
-.tile.alert { background: var(--brand-deep); } .tile.alert .label, .tile.alert .foot { color: #A8F0C4; } .tile.alert .value { color: #fff; }
+.tile.hero { background: #D6E4F2; } .tile.hero .label, .tile.hero .foot { color: #55728F; } .tile.hero .value { color: #3F6590; font-size: 40px; }
+.tile.alert { background: #F5D5CF; } .tile.alert .label, .tile.alert .foot { color: #8A4E36; } .tile.alert .value { color: #8A3B2B; }
 @media (min-width: 1100px) { .tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } .tile.hero { grid-column: span 2; } }
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
 /* funnel */
 .funnel { display: grid; grid-template-columns: minmax(90px, 190px) 1fr auto; gap: 7px 12px; align-items: center; font-size: 13.5px; }
 .funnel .lbl { color: var(--ink-2); }
 .bar { height: 18px; background: var(--grid); border-radius: 6px; overflow: hidden; }
-.bar > i { display: block; height: 100%; background: linear-gradient(90deg, #1FAA55, var(--brand)); border-radius: 6px; box-shadow: 0 0 10px rgba(57, 226, 122, 0.35); }
+.bar > i { display: block; height: 100%; background: linear-gradient(90deg, #F2C8B4, #E39B7C); border-radius: 6px; }
 .bar.cold > i { background: var(--cold); }
 .funnel .v { text-align: right; white-space: nowrap; }
 .funnel .v small { color: var(--muted); margin-left: 6px; }
 /* tags */
 .tag { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; line-height: 18px; }
 .tag.hot { background: var(--hot-bg); color: var(--hot); } .tag.cold { background: var(--cold-bg); color: var(--cold); }
-.tag.won { background: #10301C; color: var(--good); } .tag.lost { background: var(--surface-2); color: var(--muted); }
-.tag.proc { background: #3A2C12; color: #F0B060; } .tag.inst { background: #172A40; color: #8EC1F2; } .tag.bad { background: #3A1A16; color: var(--overdue); }
-.prod { --pc: var(--brand); display: inline-block; font-size: 12.5px; font-weight: 650; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--pc); color: var(--pc); background: color-mix(in srgb, var(--pc) 14%, transparent); white-space: nowrap; }
+.tag.won { background: #DDEBD4; color: var(--good); } .tag.lost { background: var(--surface-2); color: var(--muted); }
+.tag.proc { background: #F8E6C8; color: #B7782B; } .tag.inst { background: #D9E6F3; color: #4F7DAA; } .tag.bad { background: #F9D9D4; color: var(--overdue); }
+.prod { --pc: var(--brand); display: inline-block; font-size: 12.5px; font-weight: 650; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--pc); color: color-mix(in srgb, var(--pc) 45%, #4A3426); background: color-mix(in srgb, var(--pc) 22%, transparent); white-space: nowrap; }
 .tablewrap { overflow-x: auto; }
 table.cases td { vertical-align: middle; } table.cases tr { cursor: pointer; } table.cases tr:hover td { background: var(--surface-2); }
 table.cases tr.cont td { border-top: 0; padding-top: 2px; }
@@ -97,7 +117,7 @@ tr.zero td { color: var(--muted); }
 .count:empty { display: none; }
 @media (max-width: 560px) { .list li { flex-wrap: wrap; } .list .grow { flex: 1 1 60%; } .list .when { margin-left: auto; } }
 .card.warn { box-shadow: 0 0 0 1px var(--overdue); margin-bottom: 16px; } .card.warn h2 { color: var(--overdue); }
-.tag.own { background: #10301C; color: var(--brand); } .tag.agent { background: #2A2342; color: #C9BDF5; }
+.tag.own { background: #DDEBD4; color: #4F8548; } .tag.agent { background: #E6DEF5; color: #7A64B0; }
 .filters .sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 4px; }
 .paybar { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; } .paybar .bar { flex: 1; max-width: 160px; height: 8px; }
 table.sched { margin: 6px 0 2px; font-size: 12.5px; } table.sched td { padding: 3px 6px; border-top: 1px solid var(--border); }
@@ -119,7 +139,7 @@ table.sched tr.late td { color: var(--overdue); } table.sched tr.due td { color:
 .col h3 { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; }
 .col h3 .n { color: var(--muted); font-weight: 600; }
 .kcard { background: var(--surface-2); border-radius: 12px; padding: 9px 10px; margin-top: 8px; cursor: pointer; font-size: 13px; }
-.kcard:hover { outline: 1px solid var(--brand); box-shadow: 0 0 14px rgba(57, 226, 122, 0.25); }
+.kcard:hover { outline: 1.5px solid var(--brand); }
 .kcard .nm { font-weight: 650; }
 .kcard .meta { color: var(--muted); font-size: 12px; }
 .kcard.stuck { box-shadow: inset 3px 0 0 var(--overdue); }
@@ -131,7 +151,7 @@ th, td { text-align: left; padding: 8px 6px; border-top: 1px solid var(--border)
 th { color: var(--muted); font-weight: 600; font-size: 12.5px; border-top: 0; }
 td.r, th.r { text-align: right; }
 /* drawer */
-.back { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 40; }
+.back { position: fixed; inset: 0; background: rgba(74,52,38,.35); z-index: 40; }
 .drawer { position: fixed; top: 8px; right: 8px; bottom: 8px; width: min(440px, calc(100% - 16px)); background: var(--surface); border-radius: 20px; z-index: 41; overflow: auto; padding: 22px; }
 .drawer .x { float: right; font: inherit; font-size: 20px; background: var(--surface-2); color: var(--ink); border: 0; border-radius: 50%; width: 34px; height: 34px; cursor: pointer; }
 .tl { list-style: none; padding: 0; margin: 10px 0 0; }
@@ -143,16 +163,43 @@ dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 1
 dt { color: var(--muted); }
 [hidden] { display: none !important; }
 @media (max-width: 820px) {
-  .layout { grid-template-columns: 1fr; padding: 0 12px 24px; }
-  nav { position: static; flex-direction: row; overflow-x: auto; border-radius: 16px; padding: 6px; }
-  nav a { white-space: nowrap; }
-  h1 { font-size: 22px; }
+  .layout { padding: 0 12px 24px; }
+  nav a { flex-basis: 45%; padding: 14px 8px; }
+  h1, .page-head h1 { font-size: 24px; }
 }
 </style>
 </head>
 <body>
-<div class="ribbon">${PRACTICE ? '<strong>Mockup</strong> · shows the planned lead dashboard with invented practice data (Lead_Practice.xlsx). Not the real version yet.' : '<strong>Mockup with your own data</strong> · from ' + path.basename(SRC).replace(/[<>&"]/g, '') + '. Stays on this computer; not uploaded.'}</div>
-<div class="topbar"><span class="mark"></span>Lead dashboard</div>
+<div class="page-head" style="background-image:url('${BANNER}')">
+  <h1>Kay</h1><p class="sub-title">My Leads</p><p>Welcome back, Kay! Keep every lead in view.</p>
+  <div class="cal" id="cal"></div>
+</div>
+<p class="ribbon">${PRACTICE ? '<strong>Mockup</strong> · shows the planned lead dashboard with invented practice data (Lead_Practice.xlsx). Not the real version yet.' : 'Your own data from ' + path.basename(SRC).replace(/[<>&"]/g, '') + ' · stays on this computer; not uploaded.'}</p>
+<script>document.addEventListener('DOMContentLoaded',function(){
+  var box=document.getElementById('cal'),now=new Date(),ym=[now.getFullYear(),now.getMonth()];
+  var MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function key(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');}
+  function todo(){var o={};(DATA.leads||[]).forEach(function(l){var st=String(l.status||'').trim().toLowerCase();if(l.next_action_date&&st!=='won'&&st!=='lost'){(o[l.next_action_date]=o[l.next_action_date]||[]).push(l.name+(l.next_action?': '+l.next_action:''));}});return o;}
+  function draw(){
+    var y=ym[0],m=ym[1],td=todo(),first=new Date(y,m,1).getDay(),n=new Date(y,m+1,0).getDate();
+    box.textContent='';
+    var ch=document.createElement('div');ch.className='ch';
+    var pv=document.createElement('button');pv.textContent='\u2039';pv.onclick=function(){ym=m?[y,m-1]:[y-1,11];draw();};
+    var nx=document.createElement('button');nx.textContent='\u203A';nx.onclick=function(){ym=m<11?[y,m+1]:[y+1,0];draw();};
+    var t=document.createElement('span');t.textContent=MN[m]+' '+y;
+    ch.append(pv,t,nx);box.append(ch);
+    var g=document.createElement('div');g.className='cg';
+    ['S','M','T','W','T','F','S'].forEach(function(w){var e=document.createElement('div');e.className='w';e.textContent=w;g.append(e);});
+    for(var i=0;i<first;i++)g.append(document.createElement('div'));
+    for(var d=1;d<=n;d++){var e=document.createElement('div'),k=key(y,m,d);e.className='d';e.textContent=d;
+      if(y===now.getFullYear()&&m===now.getMonth()&&d===now.getDate())e.classList.add('today');
+      if(td[k]){e.classList.add('dot');e.title=td[k].join('\n');}
+      g.append(e);}
+    box.append(g);
+    var nt=document.createElement('div');nt.className='note';nt.textContent='Dot = a next action is due';box.append(nt);
+  }
+  draw();
+});</script>
 <div class="layout">
   <nav id="nav">
     <a href="#overview" data-page="overview">Overview</a>
@@ -181,7 +228,7 @@ const INSTALLMENT_PRODUCTS = ['BCS', 'BCS settlement', 'CCS'];
 const PRODUCT_COLORS = { 'BCS': '#FF7A6B', 'BCS settlement': '#FFA94D', 'CCS': '#FFD84D', 'Goal Loan': '#A8E05F', 'Home Fin': '#3DD6C6',
   'SME Loan': '#5AA9FF', 'Fin Account': '#A98BFF', 'Card Master': '#FF6FB5', 'Biz Assist': '#D9D9D9', 'Financial Workshop': '#C9A27A' };
 const prodTag = p => h('span', { class: 'prod', style: PRODUCT_COLORS[p] ? '--pc:' + PRODUCT_COLORS[p] : null }, p);
-const OWNER = 'Chris'; // agent = Chris means your own case; any other agent passed the case to you
+const OWNER = 'Kay Au'; // agent = Chris means your own case; any other agent passed the case to you
 const isOwn = l => !l.agent || String(l.agent).trim().toLowerCase() === OWNER.toLowerCase();
 const SOURCES = { 'All sources': () => true, ['Own (' + OWNER + ')']: isOwn, 'From agents': l => !isOwn(l) };
 const COLD = [['c1_telegram_promoted_date','Telegram group promoted'],['c2_telegram_joined_date','Joined Telegram group'],['c3_upgraded_hot_date','Upgraded to HOT']];
