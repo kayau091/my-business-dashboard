@@ -26,6 +26,11 @@ const table = name => {
 const data = { leads: table('Leads'), cases: table('Cases'), payments: table('Payments'), freebies: table('Freebies') };
 const BANNER = 'data:image/png;base64,' + readFileSync(path.join(root, 'scripts/assets/header-banner.png')).toString('base64'); // cartoon header, embedded so the page stays one file
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
+// the shared workbook layout + .xlsx writer, embedded so "Save to Excel" works offline
+const LW_SRC = readFileSync(path.join(root, 'scripts/lead-workbook.js'), 'utf8').replace(/^export /gm, '');
+// a short signature of this data: edits kept in the browser belong to this exact version of the workbook
+let sigH = 5381; for (let i = 0; i < json.length; i++) sigH = ((sigH * 33) ^ json.charCodeAt(i)) >>> 0;
+const SIG = path.basename(SRC) + ':' + sigH.toString(36);
 
 const html = String.raw`<!doctype html>
 <html lang="en">
@@ -75,7 +80,7 @@ h1 { font-size: 26px; } h2 { font-size: 17px; font-weight: 650; } h3 { font-size
 nav { display: flex; flex-wrap: wrap; gap: 12px; }
 nav a { flex: 1 1 150px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 18px 12px; border-radius: 22px; color: var(--ink); text-decoration: none; font-weight: 650; box-shadow: var(--glow); background: var(--surface); }
 nav a:nth-child(1) { background: #FFFAEB; } nav a:nth-child(2) { background: #D6E4F2; } nav a:nth-child(3) { background: #CFE6E3; }
-nav a:nth-child(4) { background: #F5D5CF; } nav a:nth-child(5) { background: #E6DEF5; } nav a:nth-child(6) { background: #F7E6BF; }
+nav a:nth-child(4) { background: #F5D5CF; } nav a:nth-child(5) { background: #E6DEF5; } nav a:nth-child(6) { background: #F7E6BF; } nav a:nth-child(7) { background: #D8EAD2; }
 nav a:hover { transform: translateY(-2px); }
 nav a.active { outline: 2.5px solid var(--brand-deep); outline-offset: 2px; }
 .count { background: rgba(255,255,255,.75); border-radius: 999px; padding: 0 8px; font-size: 12px; font-weight: 600; }
@@ -167,6 +172,72 @@ dt { color: var(--muted); }
   nav a { flex-basis: 45%; padding: 14px 8px; }
   h1, .page-head h1 { font-size: 24px; }
 }
+/* ---- features from the shared version, in this design ---- */
+.gcard { background: var(--surface); border-radius: 20px; padding: 16px 18px; box-shadow: var(--glow); min-width: 0; position: relative; }
+.gcard h2 { display: flex; align-items: center; gap: 6px; }
+.gi { display: inline-grid; place-items: center; } .gicon { width: 22px; height: 22px; }
+.stats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 16px; }
+.stat { padding-bottom: 8px; border-top: 3px solid var(--c); }
+.stat-top { display: flex; gap: 12px; align-items: flex-start; }
+.stat .gi { width: 40px; height: 40px; border-radius: 14px; background: color-mix(in srgb, var(--c) 18%, transparent); flex: none; }
+.stat .label { font-size: 13px; color: var(--ink-2); } .stat .value { font-size: 30px; font-weight: 750; line-height: 1.15; } .stat .foot { font-size: 12.5px; color: var(--muted); }
+.spark { display: block; width: 100%; height: 42px; margin-top: 6px; }
+.card-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; } .card-h h2 { margin: 0; }
+.link { color: var(--brand-ink); font-size: 13px; text-decoration: none; white-space: nowrap; font-weight: 650; }
+.pipe-card { margin-bottom: 16px; }
+.pipe-meta { display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--ink-2); } .pipe-meta b { font-size: 16px; } .vsep { width: 1px; height: 16px; background: var(--border); }
+.stages { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+@media (min-width: 1100px) { .stages { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+.stage { display: flex; flex-direction: column; gap: 2px; padding: 12px 12px 10px; border-radius: 18px; text-decoration: none; color: var(--ink); background: var(--sc); box-shadow: var(--glow); }
+.stage:hover { transform: translateY(-2px); }
+.stage-n { font-size: 12px; font-weight: 650; min-height: 2.5em; } .stage b { font-size: 26px; line-height: 1.1; } .stage small { color: var(--ink-2); }
+.grow3 { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); margin-bottom: 16px; }
+@media (min-width: 1100px) { .grow3.b { grid-template-columns: 260px 1fr 1fr; align-items: stretch; }
+  .grow3.b > .gcard { height: 260px; display: flex; flex-direction: column; } .grow3.b > .gcard > h2 { flex: none; }
+  .grow3.b .bars { flex: 1; min-height: 0; max-height: 190px; } .grow3.b > .gcard > div:has(.bars) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .grow3.b .month { flex: 1; align-content: center; gap: 8px 12px; margin-top: 0; } .grow3.b .month b { font-size: 20px; } .grow3.b .month small { font-size: 11.5px; line-height: 1.25; } .grow3.b .month .gicon { width: 18px; height: 18px; }
+  .grow3.b > .conv-card { aspect-ratio: auto; } }
+.conv-card { align-self: start; aspect-ratio: 1 / 1; display: flex; flex-direction: column; } .conv-card h2 { font-size: 13px; margin-bottom: 4px; }
+.conv-sq { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 0; } .conv-sq .ring { width: 116px; height: 116px; }
+.conv-mini { width: 100%; max-width: 210px; } .minibars { width: 100%; height: auto; display: block; }
+@media (max-width: 1099px) { .conv-card { aspect-ratio: auto; } }
+.ring-v { fill: var(--ink); font-size: 24px; font-weight: 750; } .ring-s { fill: var(--muted); font-size: 11px; }
+.bars { width: 100%; height: auto; display: block; } .bar-v { fill: var(--ink-2); font-size: 11px; } .bar-l { fill: var(--muted); font-size: 11px; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 4px; } .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+.month { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 6px; } .month > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; } .month b { font-size: 24px; } .month small { color: var(--muted); }
+.section-h { margin: 6px 0 12px; color: var(--ink-2); }
+.act-card { margin-top: 16px; }
+.feed { list-style: none; padding: 0; margin: 0; } .feed li { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; font-size: 13px; cursor: pointer; } .feed small { color: var(--muted); width: 74px; flex: none; }
+.dotg { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); flex: none; align-self: center; }
+.sys-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-deep); flex: none; }
+/* leads table */
+.tbar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; margin-bottom: 12px; }
+.tbar input[type=search] { flex: 1 1 240px; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; }
+.tbar input:focus, .fsel select:focus, .ein:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
+.fsel { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+.fsel select { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 7px 10px; }
+table.saas th { position: sticky; top: 0; background: var(--surface); white-space: nowrap; }
+table.saas th.sortable { cursor: pointer; user-select: none; } table.saas th.on { color: var(--brand-ink); } table.saas th .arrow { font-size: 10px; }
+table.saas tbody tr { cursor: pointer; } table.saas tbody tr:hover td { background: var(--surface-2); }
+table.saas td { vertical-align: top; } table.saas .nm { font-weight: 650; } table.saas .sub { font-size: 12px; color: var(--muted); }
+.tfoot { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+/* editing */
+.edit { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
+.ebox { border: 1px solid var(--border); border-radius: 14px; padding: 8px 12px; margin-top: 10px; background: var(--surface-2); }
+.ebox summary { cursor: pointer; font-weight: 700; color: var(--brand-ink); }
+.erow { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; margin-top: 10px; }
+.elbl { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); flex: 1 1 130px; min-width: 0; }
+.ein { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px 8px; width: 100%; color-scheme: light; }
+textarea.ein { resize: vertical; }
+.picker { display: flex; flex-direction: column; gap: 6px; }
+.echk { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.ebtn { font: inherit; font-weight: 700; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap; }
+.ebtn.go { background: var(--btn); border-color: transparent; }
+.ebtn.ghost { background: transparent; } .ebtn.warn { color: var(--overdue); border-color: var(--overdue); }
+.ebtn:hover { filter: brightness(0.96); }
+.editbar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 39; display: flex; align-items: center; gap: 10px; width: min(760px, calc(100% - 24px)); padding: 10px 14px; border-radius: 18px; background: #FFFAEB; box-shadow: 0 0 0 1.5px var(--brand), 0 10px 30px rgba(120, 90, 60, 0.25); font-size: 13.5px; }
+.editbar .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.newlead { float: right; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -203,6 +274,7 @@ dt { color: var(--muted); }
 <div class="layout">
   <nav id="nav">
     <a href="#overview" data-page="overview">Overview</a>
+    <a href="#leads" data-page="leads">Leads <span class="count" id="c-leads"></span></a>
     <a href="#board" data-page="board">Lead board <span class="count" id="c-board"></span></a>
     <a href="#cases" data-page="cases">Cases <span class="count" id="c-cases"></span></a>
     <a href="#aftersales" data-page="aftersales">After-sales <span class="count" id="c-after"></span></a>
@@ -211,6 +283,7 @@ dt { color: var(--muted); }
   </nav>
   <main>
     <section id="p-overview"></section>
+    <section id="p-leads" hidden></section>
     <section id="p-board" hidden></section>
     <section id="p-cases" hidden></section>
     <section id="p-aftersales" hidden></section>
@@ -219,8 +292,22 @@ dt { color: var(--muted); }
   </main>
 </div>
 <div id="drawer-root"></div>
+<div id="editbar" class="editbar" hidden></div>
 <script>
-const DATA = ${json};
+const ORIGINAL = ${json};
+const SRC_NAME = ${JSON.stringify(path.basename(SRC))};
+const PRACTICE_FILE = ${PRACTICE};
+const LW = (() => {
+${LW_SRC}
+return { workbookFiles, zipFiles, LAYOUT, AUTO, HOT_NEXT, COLD_NEXT, NEXT_ACTIONS };
+})();
+// ---- edits made on this page are kept in this browser until you save them to Excel ----
+const STORE_KEY = 'lead-edits:' + ${JSON.stringify(SIG)};
+let STORE = null;
+try { STORE = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { STORE = null; }
+const RAW = STORE && STORE.data ? STORE.data : JSON.parse(JSON.stringify(ORIGINAL));
+const DATA = JSON.parse(JSON.stringify(RAW));
+DATA.leads.forEach((l, i) => { l._i = i; }); DATA.cases.forEach((c, i) => { c._i = i; }); DATA.payments.forEach((p, i) => { p._i = i; });
 const HOT = [['h01_phone_date','Phone number received'],['h02_form_sent_date','Google Form sent'],['h03_call_date','First call stage'],['h04_docs_date','Docs collection stage'],['h05_checking_date','Bank Checking stage'],['h06_proposal_date','Proposal stage'],['h07_appointment_date','Appointment stage'],['h08_followup_date','Follow up & closing']];
 const PRODUCTS = ['BCS', 'BCS settlement', 'CCS', 'Goal Loan', 'Home Fin', 'SME Loan', 'Fin Account', 'Card Master', 'Biz Assist', 'Financial Workshop'];
 const INSTALLMENT_PRODUCTS = ['BCS', 'BCS settlement', 'CCS'];
@@ -239,7 +326,7 @@ function h(tag, attrs, ...kids) {
   for (const [k, v] of Object.entries(attrs || {})) {
     if (k === 'class') el.className = v; else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (v != null) el.setAttribute(k, v);
   }
-  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
   return el;
 }
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
@@ -272,7 +359,7 @@ for (const c of DATA.cases) {
   c.lead = byId.get(c.lead_id);
   c.isInstallment = String(c.installment || '').trim().toLowerCase() === 'yes';
   // installment cases close only when every payment is paid; the others when the fee is collected
-  c.plan = DATA.payments.filter(p => p.case_id === c.case_id).sort((a, b) => a.due_date.localeCompare(b.due_date));
+  c.plan = DATA.payments.filter(p => c.case_id && p.case_id === c.case_id).sort((a, b) => a.due_date.localeCompare(b.due_date));
   c.total = c.plan.reduce((s, p) => s + Number(p.amount || 0), 0);
   c.paid = c.plan.filter(p => p.paid_date).reduce((s, p) => s + Number(p.amount || 0), 0);
   c.next = c.plan.find(p => !p.paid_date) || null;
@@ -365,6 +452,103 @@ function funnel(rows, cls) {
 }
 
 // ---- pages ----
+// ---- game-style Overview helpers (all numbers come from the workbook) ----
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, ...kids) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, v);
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  return el;
+}
+let gradId = 0;
+const addD = (iso, n) => new Date(Date.parse(iso) + n * 86400000).toISOString().slice(0, 10);
+// how many dated events fall in each of the last n weeks up to the reporting date (oldest first)
+function weekly(dates, n = 8, weigh) {
+  return Array.from({ length: n }, (_, k) => {
+    const to = addD(RD, -7 * (n - 1 - k)), from = addD(to, -6);
+    return dates.filter(d => d.date >= from && d.date <= to).reduce((s, d) => s + (weigh ? weigh(d) : 1), 0);
+  });
+}
+function spark(values, color) {
+  const w = 120, hgt = 40, max = Math.max(1, ...values);
+  const pts = values.map((v, i) => [i * (w / Math.max(1, values.length - 1)), hgt - 4 - (v / max) * (hgt - 10)]);
+  const id = 'g' + (++gradId);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  return sv('svg', { viewBox: '0 0 ' + w + ' ' + hgt, class: 'spark', 'aria-hidden': 'true' },
+    sv('defs', null, sv('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, sv('stop', { offset: 0, 'stop-color': color, 'stop-opacity': 0.45 }), sv('stop', { offset: 1, 'stop-color': color, 'stop-opacity': 0 }))),
+    sv('path', { d: line + ' L' + w + ' ' + hgt + ' L0 ' + hgt + ' Z', fill: 'url(#' + id + ')' }),
+    sv('path', { d: line, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }),
+    sv('circle', { cx: pts.at(-1)[0], cy: pts.at(-1)[1], r: 3, fill: color }));
+}
+// small original line icons
+const ICONS = {
+  people: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm8 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM2 19c0-3 3-5 6-5s6 2 6 5M14 14.5c2.5-.4 6 1 6 4.5',
+  target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-4a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0-4a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 9l5-5',
+  check: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l2.8 2.8L16.5 9.5',
+  coins: 'M12 8c4.4 0 8-1.3 8-3s-3.6-3-8-3-8 1.3-8 3 3.6 3 8 3zM4 5v5c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 10v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5',
+  crown: 'M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5L3 8z',
+  bolt: 'M13 2L4 14h7l-1 8 9-12h-7l1-8z',
+  star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z',
+  flow: 'M10 3h4v4h-4zM3 17h4v4H3zM17 17h4v4h-4zM12 7v5M5 17v-3h14v3',
+  phone: 'M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z',
+  form: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5',
+  chat: 'M4 5h16v11H9l-5 4zM8 10h.01M12 10h.01M16 10h.01',
+  folder: 'M3 6h6l2 2h10v11H3zM3 10h18',
+  bank: 'M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18',
+  bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z',
+  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+  shake: 'M3 12l4-4 4 2 3-2 7 4-6 6-3-2-2 2-3-3zM11 10l3 3',
+};
+const icon = (name, color) => sv('svg', { viewBox: '0 0 24 24', class: 'gicon', 'aria-hidden': 'true' }, sv('path', { d: ICONS[name], fill: 'none', stroke: color || 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+// five tiny monthly bars with month labels, for the compact conversion card
+function miniBars(groups) {
+  const w = 200, hh = 44, max = Math.max(1, ...groups.map(g => g.values[0])), bw = w / groups.length;
+  return sv('svg', { viewBox: '0 0 ' + w + ' ' + (hh + 26), class: 'minibars' },
+    groups.map((g, i) => { const v = g.values[0], bh = Math.max(2, v / max * hh), x = i * bw + bw * 0.28;
+      return [sv('rect', { x: x.toFixed(1), y: (hh - bh + 10).toFixed(1), width: (bw * 0.44).toFixed(1), height: bh.toFixed(1), rx: 3, fill: v ? '#E9A98E' : 'rgba(120,90,60,0.10)' }),
+        v ? sv('text', { x: (x + bw * 0.22).toFixed(1), y: (hh - bh + 6).toFixed(1), 'text-anchor': 'middle', class: 'bar-v' }, v) : null,
+        sv('text', { x: (x + bw * 0.22).toFixed(1), y: hh + 24, 'text-anchor': 'middle', class: 'bar-l' }, g.label)]; }));
+}
+function ring(pct, label, sub) {
+  const R = 52, C = 2 * Math.PI * R, id = 'g' + (++gradId);
+  return sv('svg', { viewBox: '0 0 140 140', class: 'ring' },
+    sv('defs', null, sv('linearGradient', { id, x1: 0, y1: 0, x2: 1, y2: 1 }, sv('stop', { offset: 0, 'stop-color': '#E9A98E' }), sv('stop', { offset: 1, 'stop-color': '#8FB1D9' }))),
+    sv('circle', { cx: 70, cy: 70, r: R, fill: 'none', stroke: '#EFE5D3', 'stroke-width': 12 }),
+    sv('circle', { cx: 70, cy: 70, r: R, fill: 'none', stroke: 'url(#' + id + ')', 'stroke-width': 12, 'stroke-linecap': 'round', 'stroke-dasharray': (C * Math.min(1, pct / 100)).toFixed(1) + ' ' + C.toFixed(1), transform: 'rotate(-90 70 70)' }),
+    sv('text', { x: 70, y: 72, 'text-anchor': 'middle', class: 'ring-v' }, label), sv('text', { x: 70, y: 94, 'text-anchor': 'middle', class: 'ring-s' }, sub));
+}
+// bars: [{label, values:[...]}], colours per series
+function barChart(groups, colors, legend) {
+  const w = 360, hgt = 170, max = Math.max(1, ...groups.flatMap(g => g.values)), gw = w / Math.max(1, groups.length), bw = Math.min(26, gw / (colors.length + 1.2));
+  return h('div', null,
+    legend ? h('div', { class: 'legend' }, legend.map((t, i) => h('span', null, h('i', { style: 'background:' + colors[i] }), t))) : null,
+    sv('svg', { viewBox: '0 0 ' + w + ' ' + (hgt + 22), class: 'bars' },
+      groups.flatMap((g, gi) => g.values.map((v, si) => {
+        const bh = (v / max) * (hgt - 24), x = gi * gw + gw / 2 - (colors.length * bw) / 2 + si * bw + 2, y = hgt - bh;
+        return [sv('rect', { x: x.toFixed(1), y: y.toFixed(1), width: (bw - 4).toFixed(1), height: Math.max(1, bh).toFixed(1), rx: 3, fill: colors[si] }),
+          sv('text', { x: (x + (bw - 4) / 2).toFixed(1), y: (y - 5).toFixed(1), 'text-anchor': 'middle', class: 'bar-v' }, v)];
+      }).concat([sv('text', { x: (gi * gw + gw / 2).toFixed(1), y: hgt + 16, 'text-anchor': 'middle', class: 'bar-l' }, g.label)])),
+      sv('line', { x1: 0, y1: hgt, x2: w, y2: hgt, stroke: '#EADFCB' })));
+}
+function activity(limit = 7) {
+  const ev = [];
+  for (const l of leads) {
+    HOT.forEach(([k, label]) => { if (l[k]) ev.push([l[k], l, label]); });
+    COLD.forEach(([k, label]) => { if (l[k]) ev.push([l[k], l, label]); });
+    if (l.coi_date) ev.push([l.coi_date, l, 'Converted to COI']);
+    if (l.telegram_promoted_date) ev.push([l.telegram_promoted_date, l, 'Telegram group promoted']);
+  }
+  for (const c of cases) {
+    ev.push([c.closed_date, c.lead, 'Closed ' + c.product]);
+    if (c.closedDate) ev.push([c.closedDate, c.lead, c.product + ' case closed']);
+    for (const p of c.plan) if (p.paid_date) ev.push([p.paid_date, c.lead, 'Installment ' + RM(p.amount) + ' paid']);
+  }
+  return ev.filter(e => e[0]).sort((a, b) => b[0].localeCompare(a[0])).slice(0, limit);
+}
+// soft pastel colours, one per step, warm to cool towards closing
+const STAGE_COLORS = ['#F7E6BF', '#F8DCCB', '#F5D5CF', '#EFD3E3', '#E6DEF5', '#D6E4F2', '#CFE6E3', '#D8EAD2'];
+const STAGE_ICONS = ['phone', 'form', 'chat', 'folder', 'bank', 'bulb', 'calendar', 'shake'];
+
 function overview() {
   const reached = HOT.map(([k], i) => hot.filter(l => l.stage >= i + 1).length);
   const rows = HOT.map(([, label], i) => [label, reached[i], i ? Math.round(reached[i] / Math.max(1, reached[i - 1]) * 100) + '%' : '']);
@@ -374,14 +558,53 @@ function overview() {
     const ls = leads.filter(l => l.platform === p);
     return [p, ls.length, 'HOT ' + ls.filter(l => l.category === 'HOT').length + ' · won ' + ls.filter(l => l.status === 'Won').length];
   }).sort((a, b) => b[1] - a[1]);
+  // stat cards with 8-week trends
+  const ev = (list, key) => list.filter(x => x[key]).map(x => ({ date: x[key], x }));
+  const newLeadsW = weekly(ev(leads, 'first_contact_date'));
+  const movesW = weekly(hot.flatMap(l => HOT.map(([k]) => l[k]).filter(Boolean).map(date => ({ date }))));
+  const closedW = weekly(cases.filter(c => c.closedDate).map(c => ({ date: c.closedDate })));
+  const paid = cases.flatMap(c => c.plan.filter(p => p.paid_date).map(p => ({ date: p.paid_date, amount: Number(p.amount) })));
+  const paidW = weekly(paid, 8, d => d.amount);
+  const owed = cases.filter(c => c.isInstallment && c.state !== 'Closed').reduce((s, c) => s + c.total - c.paid, 0);
+  const statCard = (ic, color, label, value, foot, spk) => h('div', { class: 'gcard stat', style: '--c:' + color }, h('div', { class: 'stat-top' }, h('span', { class: 'gi', style: 'color:' + color }, icon(ic, color)), h('div', null, h('div', { class: 'label' }, label), h('div', { class: 'value num' }, value), h('div', { class: 'foot' }, foot))), spk);
+  // conversion by month: customers who closed in each of the last 5 months
+  const months = Array.from({ length: 5 }, (_, i) => { const d = new Date(Date.parse(RD.slice(0, 7) + '-01')); d.setUTCMonth(d.getUTCMonth() - (4 - i)); return d.toISOString().slice(0, 7); });
+  const wonMonth = l => (l.cases.map(c => c.closed_date).filter(Boolean).sort()[0] || '').slice(0, 7);
+  const monthBars = months.map(m => ({ label: MONTHS[Number(m.slice(5)) - 1], values: [won.filter(l => wonMonth(l) === m).length] }));
+  // lead sources: total vs closed (top 3 + others)
+  const plats = [...new Set(leads.map(l => l.platform))].map(p => ({ p, n: leads.filter(l => l.platform === p).length })).sort((a, b) => b.n - a.n);
+  const top = plats.slice(0, 3).map(x => x.p);
+  const srcGroups = top.map(p => ({ label: p, values: [leads.filter(l => l.platform === p).length, leads.filter(l => l.platform === p && l.status === 'Won').length] }));
+  if (plats.length > 3) srcGroups.push({ label: 'Others', values: [leads.filter(l => !top.includes(l.platform)).length, leads.filter(l => !top.includes(l.platform) && l.status === 'Won').length] });
+  // this month
+  const wonThisMonth = won.filter(l => wonMonth(l) === RD.slice(0, 7));
+  const daysToClose = wonThisMonth.map(l => days(l.first_contact_date, l.cases.map(c => c.closed_date).sort()[0])).filter(n => n >= 0);
+  const avgClose = daysToClose.length ? Math.round(daysToClose.reduce((a, b) => a + b, 0) / daysToClose.length) : null;
+  const productsThisMonth = cases.filter(c => (c.closed_date || '').startsWith(RD.slice(0, 7))).length;
+
   return [
-    pageHead('Overview', leads.length + (leads.length === 1 ? ' lead' : ' leads') + ' in total'),
-    h('div', { class: 'tiles' },
-      tile('Active HOT leads', activeHot.length, 'Won ' + won.length + ' · lost ' + lost.length + ' · close rate ' + closeRate + '%', 'hero'),
-      tile('To follow up', overdue.length + today.length, 'Overdue ' + overdue.length + ' · today ' + today.length, overdue.length + today.length ? 'alert' : ''),
-      tile('New leads this month', newThisMonth.length, 'HOT ' + newThisMonth.filter(l => l.category === 'HOT').length + ' · COLD ' + newThisMonth.filter(l => l.category === 'COLD').length),
-      tile('Case Closed this month', closedThisMonth.length, 'Fee collected · ' + processing.length + ' still processing'),
-      tile('COLD leads', cold.length, 'In Telegram group: ' + cold.filter(l => l.coldStep >= 2).length)),
+    h('div', { class: 'stats' },
+      statCard('people', '#7FA6CF', 'Total leads', leads.length, '+' + newThisMonth.length + ' this month', spark(newLeadsW, '#7FA6CF')),
+      statCard('target', '#D8975A', 'Active pipeline', activeHot.length, Math.round(activeHot.length / Math.max(1, hot.length) * 100) + '% of HOT leads', spark(movesW, '#D8975A')),
+      statCard('check', '#6FB58F', 'Case Closed this month', closedThisMonth.length, processing.length + ' still processing', spark(closedW, '#6FB58F'))),
+    h('div', { class: 'gcard pipe-card' }, h('div', { class: 'card-h' }, h('h2', null, h('span', { class: 'gi' }, icon('flow', '#D8975A')), ' Sales pipeline'),
+        h('div', { class: 'pipe-meta' }, h('span', null, h('b', { class: 'num' }, activeHot.length), ' active leads'), h('span', { class: 'vsep' }), h('a', { href: '#board', class: 'link' }, 'View board →'))),
+      h('div', { class: 'stages' }, HOT.map(([, label], i) => {
+        const n = activeHot.filter(l => l.stage === i + 1).length;
+        return h('a', { href: '#board', class: 'stage', style: '--sc:' + STAGE_COLORS[i], title: (i + 1) + '. ' + label },
+          h('span', { class: 'stage-n' }, (i + 1) + '. ' + label), h('b', { class: 'num' }, n), h('small', { class: 'num' }, Math.round(n / Math.max(1, activeHot.length) * 100) + '%'));
+      }))),
+    h('div', { class: 'grow3 b' },
+      h('div', { class: 'gcard conv-card' }, h('h2', null, 'Lead conversion rate'),
+        h('div', { class: 'conv-sq' }, ring(closeRate, closeRate + '%', won.length + ' / ' + hot.length + ' HOT'),
+          h('div', { class: 'conv-mini', title: 'Customers closed per month' }, miniBars(monthBars)))),
+      h('div', { class: 'gcard' }, h('h2', null, 'Lead source performance'), barChart(srcGroups, ['#8FB1D9', '#E9A98E'], ['Total leads', 'Closed'])),
+      h('div', { class: 'gcard' }, h('h2', null, 'This month'),
+        h('div', { class: 'month' },
+          [['people', newThisMonth.length, 'New leads'], ['check', wonThisMonth.length, 'Customers closed'], ['target', productsThisMonth, 'Products closed'], ['bolt', avgClose == null ? '—' : avgClose + 'd', 'Avg. days to close']]
+            .map(([ic, v, t]) => h('div', null, h('span', { class: 'gi gold' }, icon(ic, '#D8975A')), h('b', { class: 'num' }, v), h('small', null, t)))))),
+
+    h('h2', { class: 'section-h' }, 'More details'),
     h('div', { class: 'grid' },
       h('div', { class: 'card' }, h('h2', null, 'HOT conversion funnel'), h('p', { class: 'muted small' }, 'How many leads reached each step; the % is how many moved on from the step before.'), funnel(rows)),
       h('div', { class: 'card' },
@@ -401,6 +624,48 @@ function overview() {
             h('td', { class: 'r num' }, w.reduce((s, l) => s + l.cases.length, 0)), h('td', { class: 'r num' }, Math.round(w.length / Math.max(1, ls.length) * 100) + '%'));
         }))))),
   ];
+}
+// ---- Leads: a clean, searchable, sortable table ----
+const tbl = { q: '', status: 'All', category: 'All', source: 'All', agent: 'All', sort: 'first', dir: -1 }; // newest leads first
+const agentOf = l => (isOwn(l) ? OWNER : l.agent);
+// idle: days since anything happened (closed customers: since their last action)
+const idleOf = l => (l.status === 'Won' && l.lastActionDate ? Math.max(0, days(l.lastActionDate, RD)) : l.idle);
+const actionDate = l => (l.status === 'Won' ? l.lastActionDate : l.next_action_date) || '';
+const SORTS = {
+  name: l => String(l.name).toLowerCase(), status: l => l.status, stage: l => (l.status === 'Won' ? 20 : l.category === 'HOT' ? 10 + l.stage : l.coldStep),
+  source: l => String(l.platform).toLowerCase(), agent: l => String(agentOf(l) || '').toLowerCase(), first: l => l.first_contact_date || '',
+  action: l => actionDate(l) || '9999', idle: idleOf,
+};
+function leadsPage() {
+  const opt = (key, values) => h('label', { class: 'fsel' }, h('span', null, key[0].toUpperCase() + key.slice(1)),
+    h('select', { onchange: e => { tbl[key] = e.target.value; render(); } }, ['All', ...values].map(v => { const o = h('option', { value: v }, v); if (v === tbl[key]) o.selected = true; return o; })));
+  const q = tbl.q.trim().toLowerCase();
+  const rows = leads.filter(l => (tbl.status === 'All' || l.status === tbl.status) && (tbl.category === 'All' || l.category === tbl.category)
+      && (tbl.source === 'All' || l.platform === tbl.source) && (tbl.agent === 'All' || agentOf(l) === tbl.agent)
+      && (!q || [l.name, l.lead_id, l.problem, l.phone, l.platform, l.agent].some(v => String(v || '').toLowerCase().includes(q))))
+    .sort((a, b) => { const x = SORTS[tbl.sort](a), y = SORTS[tbl.sort](b); return (x < y ? -1 : x > y ? 1 : 0) * tbl.dir; });
+  const th = (key, label, cls) => h('th', { class: 'sortable' + (cls ? ' ' + cls : '') + (tbl.sort === key ? ' on' : ''), onclick: () => { if (tbl.sort === key) tbl.dir = -tbl.dir; else { tbl.sort = key; tbl.dir = 1; } render(); } },
+    label, h('span', { class: 'arrow' }, tbl.sort === key ? (tbl.dir > 0 ? ' ▲' : ' ▼') : ''));
+  const search = h('input', { type: 'search', id: 'lead-q', placeholder: 'Search name, ID, phone, problem…', value: tbl.q, oninput: e => { tbl.q = e.target.value; render(); const i = document.getElementById('lead-q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } });
+  const uniq = f => [...new Set(leads.map(f).filter(Boolean))].sort();
+  return [h('div', { class: 'newlead' }, btn('+ New lead', openNewLead, 'go')), pageHead('Leads', 'Every lead and customer in one table. Click a row for details.'),
+    h('div', { class: 'gcard' },
+      h('div', { class: 'tbar' }, search, opt('status', ['Active', 'Won', 'Lost']), opt('category', ['HOT', 'COLD']), opt('source', uniq(l => l.platform)), opt('agent', uniq(agentOf)),
+        h('button', { class: 'pill', onclick: () => { Object.assign(tbl, { q: '', status: 'All', category: 'All', source: 'All', agent: 'All' }); render(); } }, 'Clear')),
+      h('div', { class: 'tablewrap' }, h('table', { class: 'saas' },
+        h('thead', null, h('tr', null, th('name', 'Lead'), th('status', 'Status'), th('stage', 'Stage'), th('source', 'Source'), th('agent', 'Agent'), th('first', 'First contact'), th('action', 'Next / last action'), th('idle', 'Idle', 'r'))),
+        h('tbody', null, rows.map(l => h('tr', { onclick: () => openLead(l) },
+          h('td', null, h('div', { class: 'nm' }, l.name), h('div', { class: 'sub' }, l.lead_id + (l.problem ? ' · ' + l.problem : ''))),
+          h('td', null, catTag(l)),
+          h('td', { class: 'small' }, stageName(l)),
+          h('td', { class: 'small' }, l.platform),
+          h('td', null, srcTag(l)),
+          h('td', { class: 'small num' }, fmt(l.first_contact_date)),
+          h('td', { class: 'small' }, l.status === 'Won' ? [h('div', null, l.last_action || 'Last action'), h('div', { class: 'sub' }, ago(l.lastActionDate))] : l.next_action ? [h('div', null, l.next_action), h('div', { class: 'sub' }, whenText(l.next_action_date))] : h('span', { class: 'muted' }, '—')),
+          h('td', { class: 'r num small' + (l.active && l.idle >= STUCK ? ' od' : '') }, idleOf(l) + 'd')))))),
+      h('div', { class: 'tfoot' }, 'Showing ' + rows.length + ' of ' + leads.length + (rows.length !== leads.length ? ' (filtered)' : ''))),
+    h('div', { class: 'gcard act-card' }, h('h2', null, h('span', { class: 'gi gold' }, icon('bolt', '#D8975A')), ' Recent activity'),
+      h('ul', { class: 'feed' }, activity(12).map(([d, l, what]) => h('li', { onclick: () => l && openLead(l) }, h('span', { class: 'dotg' }), h('small', null, ago(d)), h('span', { class: 'grow' }, what + (l ? ' · ' + l.name : ''))))))];
 }
 let boardFilter = 'Active';
 function board() {
@@ -558,13 +823,217 @@ function openLead(l) {
         h('h3', { style: 'margin-top:16px' }, 'After-sales'),
         h('ul', { class: 'tl' },
           h('li', { class: l.coi_date ? 'done' : '' }, h('span', { class: 'dot' }), 'Converted to COI', h('span', { class: 'd' }, l.coi_date ? fmt(l.coi_date) : '')),
-          h('li', { class: l.telegram_promoted_date ? 'done' : '' }, h('span', { class: 'dot' }), 'Telegram group promoted', h('span', { class: 'd' }, l.telegram_promoted_date ? fmt(l.telegram_promoted_date) : '')))] : null)
+          h('li', { class: l.telegram_promoted_date ? 'done' : '' }, h('span', { class: 'dot' }), 'Telegram group promoted', h('span', { class: 'd' }, l.telegram_promoted_date ? fmt(l.telegram_promoted_date) : '')))] : null,
+      editPanel(l))
   );
 }
 addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('drawer-root').replaceChildren(); });
 
+// ---- editing on the page (kept in this browser until "Save to Excel") ----
+const pad2 = n => String(n).padStart(2, '0');
+const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }; // only a default for date boxes you fill in
+function commit(what, reopen) {
+  const changes = ((STORE && !STORE.saved && STORE.changes) || []).concat([what]);
+  STORE = { data: RAW, changes, saved: false };
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(STORE)); }
+  catch (e) { alert('This browser would not keep the change (' + e.message + '). Nothing was changed.'); return; }
+  try { if (reopen != null) sessionStorage.setItem('lead-reopen', String(reopen)); } catch (e) {}
+  location.reload();
+}
+const nextId = (rows, key, prefix) => {
+  const max = rows.reduce((m, r) => { const x = new RegExp('^' + prefix + '-(\\d+)$').exec(String(r[key] || '')); return x ? Math.max(m, Number(x[1])) : m; }, 0);
+  return prefix + '-' + String(max + 1).padStart(4, '0');
+};
+const ensureCaseId = i => { if (!RAW.cases[i].case_id) RAW.cases[i].case_id = nextId(RAW.cases, 'case_id', 'C'); return RAW.cases[i].case_id; };
+// small form helpers
+const inp = (type, value, attrs) => h('input', Object.assign({ type, value: value == null ? '' : value, class: 'ein' }, attrs || {}));
+const sel = (options, value) => { const s = h('select', { class: 'ein' }, options.map(o => { const op = h('option', { value: o }, o); if (o === value) op.selected = true; return op; })); return s; };
+const row = (...kids) => h('div', { class: 'erow' }, kids);
+const btn = (label, fn, cls) => h('button', { class: 'ebtn' + (cls ? ' ' + cls : ''), onclick: fn }, label);
+const lbl = (text, el) => h('label', { class: 'elbl' }, h('span', null, text), el);
+const box = (title, open, ...kids) => { const d = h('details', { class: 'ebox' }, h('summary', null, title), kids); if (open) d.open = true; return d; };
+
+const OTHER = 'Other…';
+function suggestNext(l) { return l.category === 'COLD' ? LW.COLD_NEXT[Math.min(l.coldStep, LW.COLD_NEXT.length - 1)] : LW.HOT_NEXT[Math.min(Math.max(l.stage, 1) - 1, LW.HOT_NEXT.length - 1)]; }
+function nextPicker(current, suggestion) {
+  const choices = LW.NEXT_ACTIONS.slice();
+  const known = current && choices.includes(current);
+  const s = sel([...choices, OTHER], known ? current : current ? OTHER : suggestion);
+  const own = inp('text', known ? '' : (current || ''), { placeholder: 'Type the next action' });
+  const sync = () => { own.hidden = s.value !== OTHER; };
+  s.addEventListener('change', () => { sync(); if (s.value === OTHER) own.focus(); });
+  sync();
+  return { el: h('div', { class: 'picker' }, s, own), value: () => (s.value === OTHER ? own.value.trim() : s.value) };
+}
+function editPanel(l) {
+  const L = RAW.leads[l._i];
+  const parts = [];
+  // 1) move forward
+  if (l.status === 'Active' && l.category === 'HOT') {
+    const nxt = HOT[l.stage];
+    const d1 = inp('date', todayISO());
+    if (nxt) parts.push(row(lbl('Step done on', d1), btn('✓ ' + nxt[1], () => { L[nxt[0]] = d1.value; commit(l.name + ': ' + nxt[1], l._i); }, 'go')));
+    if (l.stage) parts.push(row(h('span', { class: 'muted small' }, 'Now at: ' + HOT[l.stage - 1][1]), btn('Undo last step', () => { delete L[HOT[l.stage - 1][0]]; commit(l.name + ': undo ' + HOT[l.stage - 1][1], l._i); }, 'ghost')));
+  }
+  if (l.status === 'Active' && l.category === 'COLD') {
+    const nxt = COLD[l.coldStep];
+    const d1 = inp('date', todayISO());
+    if (nxt && nxt[0] !== 'c3_upgraded_hot_date') parts.push(row(lbl('Done on', d1), btn('✓ ' + nxt[1], () => { L[nxt[0]] = d1.value; commit(l.name + ': ' + nxt[1], l._i); }, 'go')));
+    const d2 = inp('date', todayISO());
+    parts.push(row(lbl('Gave contact details on', d2), btn('⬆ Upgrade to HOT', () => { L.c3_upgraded_hot_date = d2.value; L.category = 'HOT'; L.h01_phone_date = L.h01_phone_date || d2.value; commit(l.name + ': upgraded to HOT', l._i); }, 'go')));
+  }
+  // 2) next action (open leads) or last action (closed customers)
+  if (l.status === 'Won') {
+    const t = inp('text', L.last_action, { placeholder: 'What you did' }), d = inp('date', todayISO());
+    parts.push(row(lbl('Last action', t), lbl('Date', d), btn('Save', () => { L.last_action = t.value.trim(); L.last_action_date = d.value; commit(l.name + ': last action', l._i); })));
+  } else if (l.status === 'Active') {
+    const t = nextPicker(L.next_action, suggestNext(l)), d = inp('date', L.next_action_date || todayISO());
+    parts.push(row(lbl('Next action', t.el), lbl('Date', d), btn('Save', () => { const v = t.value(); if (v) L.next_action = v; else delete L.next_action; L.next_action_date = d.value; commit(l.name + ': next action', l._i); })));
+  }
+  const blocks = [box('Update progress', true, parts.length ? parts : h('p', { class: 'muted small' }, 'Nothing to move forward here.'))];
+  // 3) closing: add a product (marks the lead Won)
+  if (l.category === 'HOT' && l.status !== 'Lost') {
+    const p = sel(PRODUCTS, PRODUCTS[0]), dc = inp('date', todayISO()), dp = inp('date', ''), ins = h('input', { type: 'checkbox' });
+    const note = h('span', { class: 'muted small' }, 'Installment is only for ' + INSTALLMENT_PRODUCTS.join(', '));
+    blocks.push(box(l.status === 'Won' ? 'Add another product' : 'Closed! Add the product', l.status === 'Active' && l.stage >= 7,
+      row(lbl('Product', p), lbl('Closed on', dc), lbl('Processing from', dp)),
+      row(h('label', { class: 'echk' }, ins, ' Fee paid by installment'), note),
+      row(btn('Add product' + (l.status === 'Won' ? '' : ' and mark Won'), () => {
+        if (ins.checked && !INSTALLMENT_PRODUCTS.includes(p.value)) { alert('Installment is only for ' + INSTALLMENT_PRODUCTS.join(', ') + '.'); return; }
+        const c = { case_id: nextId(RAW.cases, 'case_id', 'C'), lead_id: L.lead_id, product: p.value, closed_date: dc.value };
+        if (dp.value) c.processing_date = dp.value; if (ins.checked) c.installment = 'Yes';
+        RAW.cases.push(c);
+        if (L.status !== 'Won') { L.status = 'Won'; if (L.next_action) { L.last_action = L.next_action; L.last_action_date = L.next_action_date; delete L.next_action; delete L.next_action_date; } if (!L.h08_followup_date) L.h08_followup_date = dc.value; }
+        commit(l.name + ': closed ' + p.value, l._i);
+      }, 'go'))));
+  }
+  // 4) each product: processing, fee, installments
+  l.cases.forEach(c => {
+    const C = RAW.cases[c._i], items = [];
+    if (!c.processing_date) { const d = inp('date', todayISO()); items.push(row(lbl('Processing from', d), btn('Start processing', () => { C.processing_date = d.value; commit(l.name + ': ' + c.product + ' processing', l._i); }))); }
+    if (!c.isInstallment && !c.fee_collected_date) { const d = inp('date', todayISO()); items.push(row(lbl('Fee collected on', d), btn('✓ Fee collected (close case)', () => { C.fee_collected_date = d.value; commit(l.name + ': ' + c.product + ' fee collected', l._i); }, 'go'))); }
+    if (c.isInstallment) {
+      c.plan.filter(pm => !pm.paid_date).forEach(pm => { const d = inp('date', todayISO()); items.push(row(h('span', { class: 'small' }, 'Due ' + fmt(pm.due_date) + ' · ' + RM(pm.amount)), lbl('Paid on', d), btn('✓ Paid', () => { RAW.payments[pm._i].paid_date = d.value; commit(l.name + ': ' + c.product + ' installment paid', l._i); }, 'go'))); });
+      const dd = inp('date', ''), am = inp('number', '', { min: 0, step: 50, placeholder: 'RM' });
+      items.push(row(lbl('New installment due', dd), lbl('Amount (RM)', am), btn('Add installment', () => {
+        if (!dd.value || !(Number(am.value) > 0)) { alert('Fill in the due date and an amount.'); return; }
+        RAW.payments.push({ case_id: ensureCaseId(c._i), due_date: dd.value, amount: Number(am.value) });
+        commit(l.name + ': ' + c.product + ' installment added', l._i);
+      })));
+    }
+    if (items.length) blocks.push(box(c.product + ' · ' + (c.state === 'Closed' ? 'closed' : 'processing'), true, items));
+  });
+  // 5) after-sales
+  if (l.status === 'Won') {
+    const items = [];
+    if (!l.coi_date) { const d = inp('date', todayISO()); items.push(row(lbl('On', d), btn('✓ Converted to COI', () => { L.coi_date = d.value; commit(l.name + ': COI', l._i); }, 'go'))); }
+    if (!l.telegram_promoted_date) { const d = inp('date', todayISO()); items.push(row(lbl('On', d), btn('✓ Telegram group promoted', () => { L.telegram_promoted_date = d.value; commit(l.name + ': Telegram promoted', l._i); }, 'go'))); }
+    if (items.length) blocks.push(box('After-sales', false, items));
+  }
+  // 6) lost
+  if (l.status === 'Active') {
+    const r = inp('text', '', { placeholder: 'Why (e.g. no reply)' });
+    blocks.push(box('Mark as lost', false, row(lbl('Reason', r), btn('Mark lost', () => { L.status = 'Lost'; L.lost_reason = r.value.trim(); commit(l.name + ': lost', l._i); }, 'warn'))));
+  } else if (l.status === 'Lost') {
+    blocks.push(box('Reopen', false, row(btn('Reopen this lead', () => { L.status = 'Active'; commit(l.name + ': reopened', l._i); }))));
+  }
+  // 7) details
+  const f = { name: inp('text', L.name), phone: inp('text', L.phone), platform: inp('text', L.platform), agent: inp('text', L.agent || ''), problem: inp('text', L.problem), notes: h('textarea', { class: 'ein', rows: 2 }, L.notes || '') };
+  blocks.push(box('Edit details', false,
+    row(lbl('Name', f.name), lbl('Phone', f.phone)), row(lbl('Source', f.platform), lbl('Agent (' + OWNER + ' = own case)', f.agent)),
+    row(lbl('Problem', f.problem)), row(lbl('Notes', f.notes)),
+    row(btn('Save details', () => { for (const k of Object.keys(f)) { const v = f[k].value.trim(); if (v) L[k] = v; else delete L[k]; } commit(l.name + ': details', l._i); }))));
+  return h('div', { class: 'edit' }, h('h3', null, 'Update'), blocks);
+}
+
+function openNewLead() {
+  const root = document.getElementById('drawer-root');
+  const close = () => root.replaceChildren();
+  const f = { name: inp('text', ''), category: sel(['HOT', 'COLD'], 'HOT'), platform: inp('text', ''), phone: inp('text', ''), problem: inp('text', ''), agent: inp('text', OWNER), first: inp('date', todayISO()), next: nextPicker('', LW.HOT_NEXT[0]), nextd: inp('date', todayISO()) };
+  f.category.addEventListener('change', () => { const s = f.next.el.querySelector('select'); if (s.value === LW.HOT_NEXT[0] || s.value === LW.COLD_NEXT[0]) s.value = f.category.value === 'COLD' ? LW.COLD_NEXT[0] : LW.HOT_NEXT[0]; });
+  root.replaceChildren(h('div', { class: 'back', onclick: close }), h('aside', { class: 'drawer' },
+    h('button', { class: 'x', onclick: close, 'aria-label': 'Close' }, '×'), h('h2', null, 'New lead'),
+    h('div', { class: 'edit' },
+      row(lbl('Name', f.name), lbl('HOT / COLD', f.category)), row(lbl('Source', f.platform), lbl('Phone (HOT)', f.phone)),
+      row(lbl('Problem', f.problem)), row(lbl('Agent (' + OWNER + ' = own case)', f.agent), lbl('First contact', f.first)),
+      row(lbl('Next action', f.next.el), lbl('Date', f.nextd)),
+      row(btn('Add lead', () => {
+        if (!f.name.value.trim()) { alert('Please fill in a name.'); return; }
+        const L = { lead_id: nextId(RAW.leads, 'lead_id', 'L'), name: f.name.value.trim(), platform: f.platform.value.trim(), first_contact_date: f.first.value, category: f.category.value, status: 'Active', agent: f.agent.value.trim() || OWNER, consultant: OWNER };
+        if (f.phone.value.trim()) L.phone = f.phone.value.trim(); if (f.problem.value.trim()) L.problem = f.problem.value.trim();
+        if (f.category.value === 'HOT') L.h01_phone_date = f.first.value;
+        if (f.next.value()) { L.next_action = f.next.value(); L.next_action_date = f.nextd.value; }
+        RAW.leads.push(L);
+        commit('New lead: ' + L.name, RAW.leads.length - 1);
+      }, 'go')))));
+}
+
+// ---- Save to Excel ----
+const deflateRaw = async raw => new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+// remembers which file Save to Excel writes to (IndexedDB can keep a file handle; localStorage cannot)
+const HANDLE_KEY = 'xlsx:' + SRC_NAME;
+function handleDb() { return new Promise((ok, no) => { const r = indexedDB.open('lead-dashboard', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); }
+async function handleDo(mode, fn) { try { const db = await handleDb(); return await new Promise(ok => { const q = fn(db.transaction('files', mode).objectStore('files')); q.onsuccess = () => ok(q.result); q.onerror = () => ok(null); }); } catch (e) { return null; } }
+const handleGet = () => handleDo('readonly', st => st.get(HANDLE_KEY));
+const handlePut = fh => handleDo('readwrite', st => st.put(fh, HANDLE_KEY));
+const handleDel = () => handleDo('readwrite', st => st.delete(HANDLE_KEY));
+async function saveToExcel() {
+  const sheets = { Leads: RAW.leads, Cases: RAW.cases, Payments: RAW.payments, Freebies: RAW.freebies };
+  const clean = {}, extra = {};
+  for (const [sheet, rows] of Object.entries(sheets)) {
+    const known = new Set(LW.LAYOUT[sheet].map(c => c[0])), auto = LW.AUTO[sheet] || {};
+    extra[sheet] = [...new Set(rows.flatMap(r => Object.keys(r)))].filter(k => !known.has(k) && !(k in auto));
+    clean[sheet] = rows.map(r => { const o = {}; for (const [k, v] of Object.entries(r)) if (!(k in auto) && v !== null && v !== '') o[k] = v; return o; }).filter(o => Object.keys(o).length);
+  }
+  const files = LW.workbookFiles({ leads: clean.Leads, cases: clean.Cases, payments: clean.Payments, freebies: clean.Freebies, extra,
+    title: PRACTICE_FILE ? 'Lead practice workbook (' + SRC_NAME + ')' : 'Lead workbook (' + SRC_NAME + ')',
+    subtitle: PRACTICE_FILE ? 'Every name, phone number and problem here is invented practice data.' : 'Your own leads. Keep this file on your computer: it holds personal details and is never uploaded to GitHub.' });
+  const blob = new Blob([await LW.zipFiles(files, deflateRaw)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  let how = 'downloaded';
+  if (window.showSaveFilePicker) {
+    try {
+      // after the first save, write straight back to the same file (its handle is kept in this browser)
+      let fh = await handleGet();
+      if (fh && (await fh.requestPermission({ mode: 'readwrite' })) !== 'granted') fh = null;
+      if (!fh) {
+        if (!confirm('Next, choose where to save.\n\nGo to: Desktop > Lead Dashboard > data > leads\nPick ' + SRC_NAME + ' and choose Replace. (Do NOT save into Documents.)\n\n\u63a5\u4e0b\u6765\u9009\u62e9\u6587\u4ef6\uff1a\u684c\u9762 > Lead Dashboard > data > leads > ' + SRC_NAME + '\uff0c\u6309 Replace\uff08\u4e0d\u8981\u5b58\u5728 Documents\uff09\u3002\n\nAfter this first time, Save to Excel writes to that file directly.')) return;
+        fh = await window.showSaveFilePicker({ id: 'lead-xlsx', startIn: 'desktop', suggestedName: SRC_NAME, types: [{ description: 'Excel workbook', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }] });
+        await handlePut(fh);
+      }
+      const w = await fh.createWritable(); await w.write(blob); await w.close(); how = 'saved';
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      handleDel();
+      alert('Could not write the file (' + e.message + '). If it is open in Excel, close it first. The file will be downloaded instead.');
+      how = 'downloaded';
+    }
+  }
+  if (how === 'downloaded') { const a = h('a', { href: URL.createObjectURL(blob), download: SRC_NAME }); document.body.append(a); a.click(); a.remove(); }
+  STORE = { data: RAW, changes: (STORE && STORE.changes) || [], saved: true, how };
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(STORE)); } catch (e) {}
+  showEditBar();
+}
+function showEditBar() {
+  const bar = document.getElementById('editbar');
+  if (!STORE) { bar.hidden = true; return; }
+  bar.hidden = false;
+  if (STORE.saved) {
+    // saved changes stay in this browser so the page keeps showing them until it is rebuilt from the new Excel
+    if (STORE.dismissed) { bar.hidden = true; return; }
+    bar.replaceChildren(h('span', { class: 'sys-dot' }), h('span', { class: 'grow' }, STORE.how === 'saved' ? 'Saved to Excel. Your changes are in the file now; this page keeps showing them.' : 'Excel downloaded (' + SRC_NAME + '). Move it into the data/leads folder to replace the old one.'),
+      btn('Change file', async () => { await handleDel(); saveToExcel(); }, 'ghost'),
+      btn('OK', () => { STORE.dismissed = true; try { localStorage.setItem(STORE_KEY, JSON.stringify(STORE)); } catch (e) {} bar.hidden = true; }, 'ghost'));
+    return;
+  }
+  const n = STORE.changes.length;
+  bar.replaceChildren(h('span', { class: 'sys-dot' }), h('span', { class: 'grow', title: STORE.changes.slice(-10).join('\n') }, n + (n === 1 ? ' change' : ' changes') + ' not saved to Excel yet · last: ' + STORE.changes[n - 1]),
+    btn('Save to Excel', saveToExcel, 'go'),
+    btn('Change file', async () => { await handleDel(); saveToExcel(); }, 'ghost'),
+    btn('Undo all', () => { if (confirm('Undo all ' + n + ' changes made on this page? Your Excel file stays as it is.')) { try { localStorage.removeItem(STORE_KEY); } catch (e) {} location.reload(); } }, 'ghost'));
+}
+
 // ---- router ----
-const PAGES = { overview, board, cases: casesPage, aftersales: afterSalesPage, followup, cold: coldPage };
+const PAGES = { overview, leads: leadsPage, board, cases: casesPage, aftersales: afterSalesPage, followup, cold: coldPage };
 function render() {
   const page = PAGES[location.hash.slice(1)] ? location.hash.slice(1) : 'overview';
   for (const id of Object.keys(PAGES)) {
@@ -575,12 +1044,15 @@ function render() {
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
 }
 document.getElementById('c-board').textContent = activeHot.length;
+document.getElementById('c-leads').textContent = leads.length;
 document.getElementById('c-follow').textContent = overdue.length + today.length || ''; // red dot only for leads that still need closing
 document.getElementById('c-cases').textContent = processing.length + needProduct.length;
 document.getElementById('c-after').textContent = afterSalesDue.length;
 document.getElementById('c-cold').textContent = cold.length;
 addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
 render();
+showEditBar();
+try { const ri = sessionStorage.getItem('lead-reopen'); sessionStorage.removeItem('lead-reopen'); if (ri != null && DATA.leads[Number(ri)]) openLead(DATA.leads[Number(ri)]); } catch (e) {}
 </script>
 </body>
 </html>
