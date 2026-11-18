@@ -700,7 +700,7 @@ function casesPage() {
   const customers = won.filter(SOURCES[sourceFilter]).filter(l => l.cases.some(FILTERS[caseFilter]))
     .sort((a, b) => (a.cases.every(c => c.state === 'Closed') - b.cases.every(c => c.state === 'Closed')) || a.cases[0].closed_date.localeCompare(b.cases[0].closed_date));
   const rows = customers.flatMap(l => l.cases.filter(FILTERS[caseFilter]).map((c, i) => h('tr', { class: i ? 'cont' : 'first', onclick: () => openLead(l) },
-    h('td', null, i ? '' : h('div', null, h('div', { class: 'nm' }, l.name), h('div', null, srcTag(l)), h('div', { class: 'sub' }, l.lead_id + ' · ' + l.cases.length + (l.cases.length === 1 ? ' product' : ' products') + ' · consultant ' + (l.consultant || OWNER)))),
+    h('td', null, i ? '' : h('div', null, h('div', { class: 'nm' }, l.name), h('div', null, srcTag(l)), h('div', { class: 'sub' }, l.lead_id + ' · ' + l.cases.length + (l.cases.length === 1 ? ' product' : ' products') + ' · consultant ' + (l.consultant || 'not set yet')))),
     h('td', null, prodTag(c.product)),
     h('td', null, caseState(c)),
     h('td', { class: 'num small' }, c.state === 'Closed' ? 'Fee collected ' + fmt(c.closedDate) : c.processing_date ? 'Since ' + fmt(c.processing_date) + ' (' + days(c.processing_date, RD) + ' days)' : 'Closed ' + fmt(c.closed_date)),
@@ -802,7 +802,7 @@ function openLead(l) {
       h('dl', null,
         h('dt', null, 'Lead ID'), h('dd', null, l.lead_id),
         h('dt', null, 'Source'), h('dd', null, l.platform + ', first contact ' + fmt(l.first_contact_date)),
-        l.category === 'HOT' || l.agent ? [h('dt', null, 'Agent'), h('dd', null, isOwn(l) ? [OWNER, ' ', srcTag(l)] : srcTag(l)), h('dt', null, 'Consultant'), h('dd', null, l.consultant || OWNER)] : null,
+        l.category === 'HOT' || l.agent ? [h('dt', null, 'Agent'), h('dd', null, isOwn(l) ? [OWNER, ' ', srcTag(l)] : srcTag(l)), h('dt', null, 'Consultant'), h('dd', null, l.consultant || 'not set yet')] : null,
         l.phone ? [h('dt', null, 'Phone'), h('dd', null, l.phone)] : null,
         l.problem ? [h('dt', null, 'Problem'), h('dd', null, l.problem)] : null,
         h('dt', null, 'Now'), h('dd', null, stageName(l)),
@@ -910,7 +910,7 @@ function editPanel(l) {
   // 4) each product: processing, fee, installments
   l.cases.forEach(c => {
     const C = RAW.cases[c._i], items = [];
-    if (!c.processing_date) { const d = inp('date', todayISO()); items.push(row(lbl('Processing from', d), btn('Start processing', () => { C.processing_date = d.value; commit(l.name + ': ' + c.product + ' processing', l._i); }))); }
+    if (!c.processing_date) { const d = inp('date', todayISO()); const cin = inp('text', L.consultant || '', { placeholder: 'e.g. Chris', list: 'consultant-list' }); items.push(row(lbl('Processing from', d), lbl('Consultant (who handles it)', cin), btn('Start processing', () => { C.processing_date = d.value; if (cin.value.trim()) L.consultant = cin.value.trim(); commit(l.name + ': ' + c.product + ' processing', l._i); }))); }
     if (!c.isInstallment && !c.fee_collected_date) { const d = inp('date', todayISO()); items.push(row(lbl('Fee collected on', d), btn('✓ Fee collected (close case)', () => { C.fee_collected_date = d.value; commit(l.name + ': ' + c.product + ' fee collected', l._i); }, 'go'))); }
     if (c.isInstallment) {
       c.plan.filter(pm => !pm.paid_date).forEach(pm => { const d = inp('date', todayISO()); items.push(row(h('span', { class: 'small' }, 'Due ' + fmt(pm.due_date) + ' · ' + RM(pm.amount)), lbl('Paid on', d), btn('✓ Paid', () => { RAW.payments[pm._i].paid_date = d.value; commit(l.name + ': ' + c.product + ' installment paid', l._i); }, 'go'))); });
@@ -923,6 +923,12 @@ function editPanel(l) {
     }
     if (items.length) blocks.push(box(c.product + ' · ' + (c.state === 'Closed' ? 'closed' : 'processing'), true, items));
   });
+  // consultant: one per customer (the agent brings the customer, the consultant handles the case)
+  if (l.cases.length) {
+    const cs = inp('text', L.consultant || '', { placeholder: 'e.g. Chris', list: 'consultant-list' });
+    const csList = h('datalist', { id: 'consultant-list' }, [...new Set(['Chris', ...RAW.leads.map(x => x.consultant).filter(Boolean)])].map(n => h('option', { value: n })));
+    blocks.push(box('Consultant: ' + (l.consultant || 'not set yet'), !l.consultant, row(lbl('Consultant (who handles this case)', cs), csList, btn('Save consultant', () => { const v = cs.value.trim(); if (!v) { alert('Please fill in the consultant name.'); return; } L.consultant = v; commit(l.name + ': consultant ' + v, l._i); }))));
+  }
   // 5) after-sales
   if (l.status === 'Won') {
     const items = [];
@@ -959,7 +965,7 @@ function openNewLead() {
       row(lbl('Next action', f.next.el), lbl('Date', f.nextd)),
       row(btn('Add lead', () => {
         if (!f.name.value.trim()) { alert('Please fill in a name.'); return; }
-        const L = { lead_id: nextId(RAW.leads, 'lead_id', 'L'), name: f.name.value.trim(), platform: f.platform.value.trim(), first_contact_date: f.first.value, category: f.category.value, status: 'Active', agent: f.agent.value.trim() || OWNER, consultant: OWNER };
+        const L = { lead_id: nextId(RAW.leads, 'lead_id', 'L'), name: f.name.value.trim(), platform: f.platform.value.trim(), first_contact_date: f.first.value, category: f.category.value, status: 'Active', agent: f.agent.value.trim() || OWNER };
         if (f.phone.value.trim()) L.phone = f.phone.value.trim(); if (f.problem.value.trim()) L.problem = f.problem.value.trim();
         if (f.category.value === 'HOT') L.h01_phone_date = f.first.value;
         if (f.next.value()) { L.next_action = f.next.value(); L.next_action_date = f.nextd.value; }
